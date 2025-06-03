@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Benchmark: AI in Corporate LMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Slate & Muted Teal -->
+    <!-- Application Structure Plan: The SPA uses a dashboard-style layout with top navigation to switch between four distinct views: 'Overview', 'Feature Explorer', 'Vendor Deep Dive', and 'Comparison'. This structure was chosen to manage the report's density. The 'Overview' provides immediate context with key findings and a market visualization. The 'Feature Explorer' is the core interactive tool, allowing users to granularly filter and search the entire feature dataset. The 'Vendor Deep Dive' offers a consolidated view for users interested in a specific platform, now enhanced with Gemini API features for SWOT analysis and question generation. Finally, the 'Comparison' section provides a direct visual analysis of vendors against each other. This multi-view approach supports both high-level exploration and detailed investigation, making the complex data accessible and easy to navigate. -->
+    <!-- Visualization & Content Choices: 
+        1. Overview: Market overview chart. Goal: Inform/Orient. Viz: Chart.js Bubble Chart shows vendors' feature breadth vs. roadmap ambition. Interaction: Hover for details. Justification: Provides a quick, high-level strategic snapshot of the market.
+        2. Feature Explorer: Interactive cards. Goal: Organize/Filter. Presentation: A dynamic grid of feature cards. Interaction: Dropdown filters for Vendor and Category, toggle for Live/Roadmap status. Justification: Allows users to slice and dice the detailed feature data according to their specific interests, which is crucial for a comparative report.
+        3. Vendor Deep Dive: Dynamic content panel. Goal: Synthesize. Presentation: Dropdown selects a vendor, populating a detailed view of their strategy and features. Interaction: Selection-driven content update. Gemini API Integration: Buttons for 'Generate SWOT Analysis' and 'Suggest Questions for Vendor' provide AI-powered insights. Justification: Aggregates all information for a single vendor and adds value through AI-generated contextual analysis and actionable questions.
+        4. Comparison: Stacked Bar Chart. Goal: Compare. Viz: Chart.js Horizontal Stacked Bar Chart compares vendors by the number of live/roadmap features in each category. Interaction: Tooltips for exact numbers. Justification: Offers a direct, quantitative comparison that is easier to parse than the original report's table.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 900px; margin-left: auto; margin-right: auto; height: 40vh; max-height: 500px; }
+        @media (min-width: 768px) { .chart-container { height: 60vh; max-height: 600px; } }
+        .comparison-chart-container { position: relative; width: 100%; height: 600px; }
+        .nav-link { transition: all 0.3s ease; }
+        .nav-link.active { color: #0f766e; border-bottom-color: #0f766e; }
+        .nav-link:not(.active) { border-bottom-color: transparent; }
+        .loader { border: 4px solid #f3f4f6; border-top: 4px solid #0d9488; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .gemini-output { white-space: pre-wrap; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div id="app" class="container mx-auto p-4 md:p-8">
+
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-teal-800">AI Capabilities in Corporate LMS</h1>
+            <p class="mt-2 text-lg text-slate-600">An Interactive Benchmark Analysis</p>
+        </header>
+
+        <nav class="sticky top-0 bg-slate-50/80 backdrop-blur-sm z-10 mb-8 border-b border-slate-200">
+            <div class="flex justify-center space-x-4 md:space-x-8">
+                <button data-target="overview" class="nav-link text-sm md:text-base font-medium py-3 border-b-2 active">Overview</button>
+                <button data-target="feature-explorer" class="nav-link text-sm md:text-base font-medium py-3 border-b-2">Feature Explorer</button>
+                <button data-target="vendor-deep-dive" class="nav-link text-sm md:text-base font-medium py-3 border-b-2">Vendor Deep Dive</button>
+                <button data-target="comparison" class="nav-link text-sm md:text-base font-medium py-3 border-b-2">Comparison</button>
+            </div>
+        </nav>
+
+        <main>
+            <section id="overview" class="view active-view">
+                <div class="bg-white p-6 rounded-lg shadow-sm mb-8">
+                    <h2 class="text-2xl font-bold text-teal-700 mb-4">Executive Summary</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        The corporate Learning Management System (LMS) market is undergoing a profound transformation driven by Artificial Intelligence. Platforms are evolving from simple content repositories into intelligent learning ecosystems that personalize experiences, accelerate content creation, and provide deep, skill-based insights. This interactive application visualizes a benchmark analysis of the AI features across leading corporate LMS platforms, examining both currently available features and future roadmaps. The analysis reveals significant investment in generative AI and skills intelligence, with a clear trend towards "AI-native" platforms. Use the navigation above to explore the data.
+                    </p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h2 class="text-2xl font-bold text-teal-700 mb-4 text-center">Market Landscape: Feature Breadth vs. Roadmap Ambition</h2>
+                     <p class="text-center text-slate-500 mb-4 text-sm">A qualitative visualization of vendor positioning based on the report. Hover over bubbles for details.</p>
+                    <div class="chart-container">
+                        <canvas id="marketOverviewChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="feature-explorer" class="view hidden">
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h2 class="text-2xl font-bold text-teal-700 mb-4">Feature Explorer</h2>
+                     <p class="text-slate-600 leading-relaxed mb-6">
+                        This section allows you to perform a granular exploration of all AI features mentioned in the report. Use the filters below to narrow down the results by vendor, feature category, or development status (Live vs. Roadmap). This is the most powerful tool for detailed, cross-platform feature discovery.
+                    </p>
+                    <div class="flex flex-wrap gap-4 items-center mb-6 p-4 bg-slate-100 rounded-lg">
+                        <div class="flex-grow">
+                            <label for="vendorFilter" class="block text-sm font-medium text-slate-700 mb-1">Vendor</label>
+                            <select id="vendorFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500">
+                                <option value="all">All Vendors</option>
+                            </select>
+                        </div>
+                        <div class="flex-grow">
+                            <label for="categoryFilter" class="block text-sm font-medium text-slate-700 mb-1">Feature Category</label>
+                            <select id="categoryFilter" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500">
+                                <option value="all">All Categories</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center space-x-4 pt-6">
+                             <label class="flex items-center cursor-pointer">
+                                <span class="mr-3 text-sm font-medium text-slate-700">Roadmap</span>
+                                <div class="relative">
+                                    <input type="checkbox" id="statusToggle" class="sr-only peer" checked>
+                                    <div class="w-14 h-8 bg-slate-300 rounded-full peer peer-checked:bg-teal-600 transition"></div>
+                                    <div class="absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition transform peer-checked:translate-x-full"></div>
+                                </div>
+                                <span class="ml-3 text-sm font-medium text-slate-700">Live</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="featureGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="col-span-full flex justify-center items-center h-64">
+                            <div class="loader"></div>
+                        </div>
+                    </div>
+                     <p id="noResults" class="text-center text-slate-500 py-12 hidden">No features match the current filter criteria.</p>
+                </div>
+            </section>
+
+            <section id="vendor-deep-dive" class="view hidden">
+                 <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h2 class="text-2xl font-bold text-teal-700 mb-4">Vendor Deep Dive</h2>
+                     <p class="text-slate-600 leading-relaxed mb-6">
+                        Select a single vendor from the dropdown menu to see a consolidated view of their AI strategy, a complete list of their live and roadmap features, and a summary of user sentiment as captured in the report. This is ideal for focusing on one specific platform's capabilities. Use the Gemini-powered buttons for deeper insights!
+                    </p>
+                    <div class="mb-6">
+                        <label for="vendorSelector" class="block text-sm font-medium text-slate-700 mb-1">Select a Vendor</label>
+                        <select id="vendorSelector" class="w-full max-w-md p-2 border border-slate-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500">
+                        </select>
+                    </div>
+                    <div id="vendorDetailContent">
+                        <div class="col-span-full flex justify-center items-center h-64">
+                            <div class="loader"></div>
+                        </div>
+                    </div>
+                    <div id="geminiFeaturesContainer" class="mt-8 pt-6 border-t border-slate-200 hidden">
+                        <h3 class="text-xl font-semibold text-teal-600 mb-4">✨ AI-Powered Insights (via Gemini)</h3>
+                        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                            <button id="generateSwotButton" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex-1">
+                                ✨ Generate SWOT Analysis
+                            </button>
+                            <button id="generateQuestionsButton" class="bg-sky-600 hover:bg-sky-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out flex-1">
+                                ✨ Suggest Questions for Vendor
+                            </button>
+                        </div>
+                        <div id="swotAnalysisSection" class="mb-6 hidden">
+                            <h4 class="text-lg font-semibold text-slate-700 mb-2">SWOT Analysis:</h4>
+                            <div id="swotLoader" class="flex justify-center items-center h-20 hidden"><div class="loader"></div></div>
+                            <div id="swotOutput" class="bg-slate-100 p-4 rounded-md text-slate-700 gemini-output"></div>
+                            <p id="swotError" class="text-red-600 hidden"></p>
+                        </div>
+                        <div id="questionsSection" class="hidden">
+                            <h4 class="text-lg font-semibold text-slate-700 mb-2">Suggested Questions:</h4>
+                            <div id="questionsLoader" class="flex justify-center items-center h-20 hidden"><div class="loader"></div></div>
+                            <div id="questionsOutput" class="bg-slate-100 p-4 rounded-md text-slate-700 gemini-output"></div>
+                            <p id="questionsError" class="text-red-600 hidden"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="comparison" class="view hidden">
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h2 class="text-2xl font-bold text-teal-700 mb-4">Comparative Analysis</h2>
+                     <p class="text-slate-600 leading-relaxed mb-6">
+                        This section provides a direct quantitative comparison of the vendors based on the number of distinct AI features identified in the report. The charts visualize the volume of features across key categories, separated by their current development status. Use this to quickly assess the focus areas and relative AI maturity of each platform.
+                    </p>
+                    <div>
+                        <h3 class="text-xl font-semibold text-teal-600 mb-4 text-center">Live AI Feature Count by Category</h3>
+                        <div class="comparison-chart-container">
+                             <canvas id="liveFeaturesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-12">
+                         <h3 class="text-xl font-semibold text-teal-600 mb-4 text-center">Roadmap AI Feature Count by Category</h3>
+                         <div class="comparison-chart-container">
+                             <canvas id="roadmapFeaturesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const lmsData = [
+            {
+                vendor: 'Docebo',
+                strategy: 'Articulates a vision of an "AI-first, human-centered" learning platform, the culmination of a long-term investment in AI architecture. Aims to automate tasks, personalize learning at scale, and provide deep analytics.',
+                userSentiment: 'Users recognize potential in AI content creation but sometimes criticize output quality. The cost of advanced AI features can be perceived as high. Reporting is generally well-received but with some noted limitations.',
+                position: { x: 8, y: 9, r: 18 },
+                features: [
+                    { name: 'AI Creator', category: 'Content Creation', status: 'Live', description: 'Suite for text revision, assessment generation, image tagging, and an AI video presenter.' },
+                    { name: 'Auto-Tagging', category: 'Content Creation', status: 'Live', description: 'Analyzes formal and informal assets (including audio) to automatically generate relevant tags.' },
+                    { name: 'Automated Translations', category: 'Content Creation', status: 'Live', description: 'Utilizes AWS Translate for multilingual content support.' },
+                    { name: 'Content Recommendation Engine', category: 'Personalization', status: 'Live', description: 'Proprietary AI model suggests content based on user activity.' },
+                    { name: 'Auto Skill Assignment', category: 'Skills Management', status: 'Live', description: 'Analyzes content and assigns skills from the organization\'s catalog.' },
+                    { name: 'AI-Augmented Global Search', category: 'Search & Discovery', status: 'Live', description: 'Enhances search relevance by analyzing learning content.' },
+                    { name: 'AI Virtual Coaching', category: 'AI Assistants & Coaching', status: 'Roadmap', description: 'Planned dynamic, personalized coaching through interactive AI avatars.' },
+                    { name: 'AI Neural Search (Project Harmony)', category: 'Search & Discovery', status: 'Roadmap', description: 'Future release to enable natural language questions for more intelligent answers.' },
+                    { name: 'Harmony (Co-pilot & Agentic Marketplace)', category: 'Platform-wide AI', status: 'Roadmap', description: 'An AI co-pilot and L&D agentic marketplace to orchestrate learning experiences.' }
+                ]
+            },
+            {
+                vendor: '360Learning',
+                strategy: 'Emphasizes "AI-powered authoring that puts L&D in control." The strategy augments their collaborative learning model, empowering SMEs with AI tools while maintaining organizational governance.',
+                userSentiment: 'Users praise the ease of creating AI-based courses from PDFs. Some find the native authoring tool could be more robust. A desire for an AI chatbot to improve course search has been expressed.',
+                position: { x: 7, y: 6, r: 16 },
+                features: [
+                    { name: '1-click AI Course Creation', category: 'Content Creation', status: 'Live', description: 'Generates courses from prompts or by transforming uploaded documents/videos.' },
+                    { name: 'L&D Controlled Prompts', category: 'Content Creation', status: 'Live', description: 'Admin tools to manage prompts for compliance, DEI, and company culture.' },
+                    { name: 'Harmful Comment Detection', category: 'Content Creation', status: 'Live', description: 'AI identifies and unpublishes harmful comments, notifying admins.' },
+                    { name: 'Skills-Based Content Recommendations', category: 'Personalization', status: 'Live', description: 'AI provides recommendations tailored to specific skills learners aim to develop.' },
+                    { name: 'AI-Powered Skills Ontology', category: 'Skills Management', status: 'Live', description: 'AI-generated suggestions for creating and maintaining a dynamic skills ontology, using Lightcast.io taxonomies.' },
+                    { name: 'AI-Powered Proficiency Levels', category: 'Skills Management', status: 'Live', description: 'AI provides suggestions for designing and customizing proficiency benchmarks.' },
+                    { name: 'Memory Anchoring', category: 'Learning Experience', status: 'Roadmap', description: 'Upcoming feature to improve knowledge retention with summaries and quick knowledge checks.' },
+                    { name: 'Audio Mode', category: 'Learning Experience', status: 'Roadmap', description: 'A feature to improve accessibility by allowing learners to listen to courses.' }
+                ]
+            },
+            {
+                vendor: 'TalentLMS',
+                strategy: 'Aims to make training "smarter, faster, and more personalized" by building accessible AI-powered tools for businesses of all sizes, focusing on usability and practicality.',
+                userSentiment: 'TalentCraft AI is praised for saving significant time in content creation. However, AI translations can be inaccurate, and users desire more specific prompts for better content relevance.',
+                position: { x: 6, y: 7, r: 15 },
+                features: [
+                    { name: 'TalentCraft (AI Course Creator)', category: 'Content Creation', status: 'Live', description: 'Generates content from prompts, improves existing text, and imports documents to create learning units.' },
+                    { name: 'AI Skill Creation', category: 'Skills Management', status: 'Live', description: 'AI populates a skill\'s description, image, self-assessment questions, and related resources.' },
+                    { name: 'AI Talent Pool & Job Pathfinder', category: 'Skills Management', status: 'Live', description: 'AI-assisted tools to find users matching job roles and identify required skills.' },
+                    { name: 'Instant Course Translation', category: 'Content Creation', status: 'Live', description: 'Breaks down language barriers for global training delivery.' },
+                    { name: 'Learning Coach', category: 'AI Assistants & Coaching', status: 'Roadmap', description: 'Designed to provide learners with real-time guidance, explanations, and practice questions.' }
+                ]
+            },
+            {
+                vendor: 'Absorb LMS',
+                strategy: 'Vision is centered on "Strategic Learning Systems," leveraging AI to align L&D with business objectives. Strategy includes the acquisition of a mentoring platform, "Together," for a holistic development approach.',
+                userSentiment: 'Users appreciate time savings from AI in course creation. However, AI suggestions for imagery and tags can be "a bit random." AI-powered admin filters are well-received.',
+                position: { x: 6.5, y: 7.5, r: 16 },
+                features: [
+                    { name: 'Generative AI for Course Creation', category: 'Content Creation', status: 'Live', description: 'Absorb Create AI (Beta) assists with research and design elements for course creation.' },
+                    { name: 'Customizable AI Voice-over', category: 'Content Creation', status: 'Live', description: 'Allows for more natural pauses and multiple voices in AI-generated audio.' },
+                    { name: 'Smart Course Recommendations', category: 'Personalization', status: 'Live', description: 'Provides suggestions based on learner interests and performance data.' },
+                    { name: 'Absorb Skills', category: 'Skills Management', status: 'Live', description: 'AI-driven solution to identify skill gaps and deliver personalized learning paths.' },
+                    { name: 'Intelligent Assist AI tool', category: 'Administrative Automation', status: 'Live', description: 'Automates admin tasks and provides reporting insights using natural language commands.' },
+                    { name: 'Predictive Insights for Personalization', category: 'Personalization', status: 'Roadmap', description: 'Aims to deliver relevant content at the right time by anticipating learner needs.' },
+                    { name: 'Immersive Experiential Learning', category: 'Learning Experience', status: 'Roadmap', description: 'Plans to create more intuitive and engaging online and hands-on learning opportunities.' }
+                ]
+            },
+            {
+                vendor: 'Sana Labs',
+                strategy: 'Positions itself as an "AI company" with a mission to transform how organizations learn and access knowledge. AI is core to its dual offerings (Sana Learn, Sana Agents) and is not an add-on. LLM-agnostic approach.',
+                userSentiment: 'Users praise the AI-driven course generation and smart search. Some note that AI suggestions can occasionally be inaccurate and desire more customization options.',
+                position: { x: 9, y: 9.5, r: 19 },
+                features: [
+                    { name: 'AI Dynamic Content Generation', category: 'Content Creation', status: 'Live', description: 'Dynamically generates content from source materials, including PDFs, and tailors it to learners.' },
+                    { name: 'AI Adaptive Learning Paths', category: 'Personalization', status: 'Live', description: 'Monitors individual performance in real-time to design and adapt learning experiences.' },
+                    { name: 'Sana Agents (Task Automation)', category: 'Administrative Automation', status: 'Live', description: 'Intelligent agent completes multi-step tasks in other enterprise platforms (e.g., Salesforce).' },
+                    { name: 'AI Semantic Search (RAG)', category: 'Search & Discovery', status: 'Live', description: 'Searches across all connected company applications to provide verified knowledge with citations.' },
+                    { name: 'AI Meeting Transcription & Summarization', category: 'AI Assistants & Coaching', status: 'Live', description: 'Transcribes, summarizes, and stores meeting recordings for later query.' },
+                    { name: 'Custom No-Code AI Agent Creation', category: 'AI Assistants & Coaching', status: 'Roadmap', description: 'Organizations will be able to build custom AI agents tailored for specific workflows.' },
+                    { name: 'Next-Gen Enterprise Search', category: 'Search & Discovery', status: 'Roadmap', description: 'Plans for an enhanced enterprise search with improved ranking.' },
+                    { name: 'AI Avatars', category: 'Content Creation', status: 'Roadmap', description: 'Ability to generate AI avatars from company training materials to make knowledge more engaging.' }
+                ]
+            },
+            {
+                vendor: 'Didask',
+                strategy: 'Centered on "Instructional AI" or "Educational AI," derived from cognitive science research. The goal is effective learning outcomes, not just content delivery. Focuses on automating pedagogical tasks.',
+                userSentiment: 'Testimonials emphasize efficient production of homogenous content and rapid design times. High percentage of learners report a positive impact on their work.',
+                position: { x: 5, y: 8, r: 14 },
+                features: [
+                    { name: 'Automated Pedagogical Task Mgmt', category: 'Content Creation', status: 'Live', description: 'AI handles instructional sequencing, design, and layout from raw content.' },
+                    { name: 'Simulation of Complex Situations', category: 'Content Creation', status: 'Live', description: 'AI is used to create realistic dialogues and situational exercises.' },
+                    { name: 'Dynamic Adjustment of Difficulty', category: 'Personalization', status: 'Live', description: 'AI continuously adjusts content difficulty based on learner progress.' },
+                    { name: 'Didia (AI Assistant)', category: 'AI Assistants & Coaching', status: 'Live', description: 'Intelligent teaching assistant provides feedback, facilitates exercises, and supports post-training Q&A.' },
+                    { name: 'Scheduled Revisions', category: 'Learning Experience', status: 'Live', description: 'Smart reminders based on forgetting curves to enhance long-term memory.' },
+                    { name: 'Knowledge Assistant for Informal Learning', category: 'AI Assistants & Coaching', status: 'Roadmap', description: 'A new AI assistant to be integrated into daily workplace tools for in-workflow learning.' }
+                ]
+            },
+            {
+                vendor: 'Cornerstone OnDemand',
+                strategy: 'Advances AI under the "Cornerstone Galaxy AI" umbrella, an "AI-powered workforce agility platform." Focuses on augmenting talent processes with a human always in the loop.',
+                userSentiment: 'Reporting is considered great by some but limited by others. The platform is praised for centralizing learning and customization.',
+                position: { x: 7.5, y: 8.5, r: 17 },
+                features: [
+                    { name: 'Cornerstone Companion AI', category: 'AI Assistants & Coaching', status: 'Live', description: 'A companion that generates job metadata and curates learning collections to close skill gaps.'},
+                    { name: 'AI-driven skill analytics', category: 'Skills Management', status: 'Live', description: 'Provides deep workforce insights to identify and bridge skill gaps.'},
+                    { name: 'GenAI chatbot for reporting', category: 'Administrative Automation', status: 'Live', description: 'Simplifies data analysis and empowers users to produce real-time insights.'},
+                    { name: 'AI-powered career pathing', category: 'Personalization', status: 'Live', description: 'Helps employees navigate growth opportunities with AI-enhanced mentorship.'},
+                    { name: 'AI-assisted goal creation', category: 'Administrative Automation', status: 'Roadmap', description: 'AI suggestions for goal descriptions to make them more actionable.'},
+                    { name: 'Check-in summarization', category: 'Administrative Automation', status: 'Roadmap', description: 'AI-based tool to generate summaries of check-in notes for performance reviews.'},
+                    { name: 'AI-Powered Avatars & Simulations', category: 'Learning Experience', status: 'Roadmap', description: 'Immersive AI avatars and realistic, role-based simulations for rapid skill mastery.'},
+                ]
+            },
+            {
+                vendor: 'SAP Litmos',
+                strategy: 'Integrates AI to make training adaptive and efficient. The "Litmos AI Assistant" uses a proprietary AI infrastructure to ensure data privacy while helping users find resources.',
+                userSentiment: 'Users praise the intuitive Content Authoring Tool. The AI Assistant is noted as great for getting quick responses to questions.',
+                position: { x: 5.5, y: 5, r: 15 },
+                features: [
+                    { name: 'AI Content Authoring Tool (CAT)', category: 'Content Creation', status: 'Live', description: 'AI-assisted creation of SCORM content, with AI generating outlines and suggestions.'},
+                    { name: 'AI Playlists', category: 'Personalization', status: 'Live', description: 'Learners can generate personalized learning paths using natural language prompts.'},
+                    { name: 'AI/ML Video Assessments', category: 'Skills Management', status: 'Live', description: 'Analyzes videos of employee performance and provides objective feedback on delivery, sentiment, etc.'},
+                    { name: 'Litmos AI Assistant', category: 'AI Assistants & Coaching', status: 'Live', description: 'Conversational GenAI tool for finding info, getting recommendations, and launching courses.'},
+                    { name: 'AI Video Tagging', category: 'Search & Discovery', status: 'Live', description: 'Automatically tags key concepts in videos to improve searchability.'},
+                    { name: 'Playlist Sharing', category: 'Personalization', status: 'Roadmap', description: 'Planned ability for users to share their AI-generated learning playlists.'},
+                ]
+            },
+             {
+                vendor: 'WorkRamp',
+                strategy: 'Positions as a "next-gen" LMS with a strong emphasis on "AI Assist" and "AI Practice" to speed up content creation and improve sales enablement.',
+                userSentiment: 'General G2 reviews highlight ease of course creation. Specific feedback on AI features is not prevalent in the provided report snippets.',
+                position: { x: 7, y: 5.5, r: 14 },
+                features: [
+                    { name: 'AI Assist for Content Creation', category: 'Content Creation', status: 'Live', description: 'Helps create content from brainstorms, edits, image generation, and video captioning.'},
+                    { name: 'AI Practice for Pitch Enablement', category: 'Skills Management', status: 'Live', description: 'AI-driven role-play bots for reps to practice calls and receive instant feedback.'},
+                    { name: 'AI for Identifying Skill Gaps', category: 'Skills Management', status: 'Live', description: 'Analyzes employee data (LMS activity, sales calls) to pinpoint skill gaps.'},
+                    { name: 'AI-Powered Feedback Analysis', category: 'Administrative Automation', status: 'Live', description: 'Turns raw feedback into insights by spotting patterns and themes.'},
+                    { name: 'Glean Integration', category: 'Search & Discovery', status: 'Live', description: 'Brings AI-powered enterprise search to the learner experience.'},
+                    { name: 'AI Personalized Learning', category: 'Personalization', status: 'Live', description: 'Allows learners to take training in their preferred format and language.'},
+                ]
+            },
+            {
+                vendor: 'Adobe Learning Manager',
+                strategy: 'Incorporates AI to deliver personalized learning experiences and improve content discoverability, balancing user interests with organizational goals. A key feature is advanced AI-powered search.',
+                userSentiment: 'Users on TrustRadius find the user experience satisfactory and the interface intuitive. No specific feedback on AI features in the report.',
+                position: { x: 4.5, y: 4, r: 13 },
+                features: [
+                    { name: 'AI-powered recommendations', category: 'Personalization', status: 'Live', description: 'Delivers relevant learning based on user profile, preferences, and HR system data.'},
+                    { name: 'Advanced AI Search', category: 'Search & Discovery', status: 'Live', description: 'Combines lexical and semantic search, with vector embeddings, and searches within content transcripts.'},
+                    { name: 'AI Assistant for administrators', category: 'AI Assistants & Coaching', status: 'Live', description: 'Helps admins find info and complete tasks by asking questions in plain language (Beta).'},
+                    { name: 'Generative AI in Document Cloud', category: 'Content Creation', status: 'Live', description: 'Potential for use in learning context; summarizes docs and provides Q&A from PDFs, DOCX, etc.'},
+                ]
+            }
+        ];
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const views = document.querySelectorAll('.view');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const vendorFilter = document.getElementById('vendorFilter');
+            const categoryFilter = document.getElementById('categoryFilter');
+            const statusToggle = document.getElementById('statusToggle');
+            const featureGrid = document.getElementById('featureGrid');
+            const noResults = document.getElementById('noResults');
+            
+            const vendorSelector = document.getElementById('vendorSelector');
+            const vendorDetailContent = document.getElementById('vendorDetailContent');
+            const geminiFeaturesContainer = document.getElementById('geminiFeaturesContainer');
+            const generateSwotButton = document.getElementById('generateSwotButton');
+            const generateQuestionsButton = document.getElementById('generateQuestionsButton');
+            const swotAnalysisSection = document.getElementById('swotAnalysisSection');
+            const swotLoader = document.getElementById('swotLoader');
+            const swotOutput = document.getElementById('swotOutput');
+            const swotError = document.getElementById('swotError');
+            const questionsSection = document.getElementById('questionsSection');
+            const questionsLoader = document.getElementById('questionsLoader');
+            const questionsOutput = document.getElementById('questionsOutput');
+            const questionsError = document.getElementById('questionsError');
+
+            let allFeatures = [];
+            let allCategories = new Set();
+            let allVendors = new Set();
+            let currentSelectedVendorData = null;
+
+            function initializeData() {
+                lmsData.forEach(vendor => {
+                    allVendors.add(vendor.vendor);
+                    vendor.features.forEach(feature => {
+                        allFeatures.push({ ...feature, vendor: vendor.vendor });
+                        allCategories.add(feature.category);
+                    });
+                });
+
+                populateFilters();
+                renderAll();
+            }
+
+            function populateFilters() {
+                allVendors.forEach(vendor => {
+                    const option = document.createElement('option');
+                    option.value = vendor;
+                    option.textContent = vendor;
+                    vendorFilter.appendChild(option);
+                    vendorSelector.appendChild(option.cloneNode(true));
+                });
+                allCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = category;
+                    categoryFilter.appendChild(option);
+                });
+            }
+
+            function filterFeatures() {
+                const selectedVendor = vendorFilter.value;
+                const selectedCategory = categoryFilter.value;
+                const showLive = statusToggle.checked;
+                const selectedStatus = showLive ? 'Live' : 'Roadmap';
+
+                const filtered = allFeatures.filter(feature => {
+                    const vendorMatch = selectedVendor === 'all' || feature.vendor === selectedVendor;
+                    const categoryMatch = selectedCategory === 'all' || feature.category === selectedCategory;
+                    const statusMatch = feature.status === selectedStatus;
+                    return vendorMatch && categoryMatch && statusMatch;
+                });
+                
+                renderFeatureGrid(filtered);
+            }
+            
+            function renderFeatureGrid(features) {
+                featureGrid.innerHTML = '';
+                if (features.length === 0) {
+                    noResults.style.display = 'block';
+                } else {
+                    noResults.style.display = 'none';
+                    features.forEach(feature => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-white border border-slate-200 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300';
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <h3 class="text-lg font-semibold text-slate-800">${feature.name}</h3>
+                                <span class="text-xs font-medium px-2 py-1 rounded-full ${feature.status === 'Live' ? 'bg-teal-100 text-teal-800' : 'bg-amber-100 text-amber-800'}">${feature.status}</span>
+                            </div>
+                            <p class="text-sm font-medium text-teal-700 mt-1">${feature.vendor}</p>
+                            <p class="text-sm text-slate-500 mt-1">${feature.category}</p>
+                            <p class="text-slate-600 mt-3 text-sm">${feature.description}</p>
+                        `;
+                        featureGrid.appendChild(card);
+                    });
+                }
+            }
+            
+            function renderVendorDetails(vendorName) {
+                currentSelectedVendorData = lmsData.find(v => v.vendor === vendorName);
+                if (!currentSelectedVendorData) {
+                    vendorDetailContent.innerHTML = '<p class="text-slate-500">Please select a vendor.</p>';
+                    geminiFeaturesContainer.classList.add('hidden');
+                    return;
+                }
+
+                const liveFeatures = currentSelectedVendorData.features.filter(f => f.status === 'Live');
+                const roadmapFeatures = currentSelectedVendorData.features.filter(f => f.status === 'Roadmap');
+
+                vendorDetailContent.innerHTML = `
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-xl font-semibold text-slate-800 mb-2">AI Strategy & Vision</h3>
+                            <p class="text-slate-600 leading-relaxed">${currentSelectedVendorData.strategy}</p>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-slate-800 mb-2">User Sentiment Summary</h3>
+                            <p class="text-slate-600 bg-slate-100 p-4 rounded-md italic">"${currentSelectedVendorData.userSentiment}"</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h3 class="text-xl font-semibold text-slate-800 mb-3 flex items-center">
+                                    <span class="w-3 h-3 bg-teal-500 rounded-full mr-2"></span>
+                                    Live Features
+                                </h3>
+                                <ul class="space-y-3">
+                                    ${liveFeatures.map(f => `
+                                        <li class="bg-white border border-slate-200 p-3 rounded-md">
+                                            <p class="font-semibold text-slate-700">${f.name}</p>
+                                            <p class="text-sm text-slate-500">${f.category}</p>
+                                        </li>
+                                    `).join('') || '<li class="text-slate-500">No live features detailed in report.</li>'}
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-slate-800 mb-3 flex items-center">
+                                    <span class="w-3 h-3 bg-amber-500 rounded-full mr-2"></span>
+                                    Roadmap Features
+                                </h3>
+                                <ul class="space-y-3">
+                                    ${roadmapFeatures.map(f => `
+                                         <li class="bg-white border border-slate-200 p-3 rounded-md">
+                                            <p class="font-semibold text-slate-700">${f.name}</p>
+                                            <p class="text-sm text-slate-500">${f.category}</p>
+                                        </li>
+                                    `).join('') || '<li class="text-slate-500">No roadmap features detailed in report.</li>'}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                geminiFeaturesContainer.classList.remove('hidden');
+                swotAnalysisSection.classList.add('hidden');
+                questionsSection.classList.add('hidden');
+                swotOutput.textContent = '';
+                questionsOutput.textContent = '';
+                swotError.classList.add('hidden');
+                questionsError.classList.add('hidden');
+            }
+
+            function switchView(targetId) {
+                views.forEach(view => {
+                    view.classList.add('hidden');
+                    view.classList.remove('active-view');
+                });
+                navLinks.forEach(link => link.classList.remove('active'));
+
+                const targetView = document.getElementById(targetId);
+                const targetLink = document.querySelector(`[data-target="${targetId}"]`);
+                
+                if (targetView) {
+                    targetView.classList.remove('hidden');
+                    targetView.classList.add('active-view');
+                }
+                if(targetLink) {
+                    targetLink.classList.add('active');
+                }
+            }
+
+            function renderAll() {
+                filterFeatures();
+                if (vendorSelector.value) {
+                   renderVendorDetails(vendorSelector.value);
+                } else if (allVendors.size > 0) {
+                    vendorSelector.value = Array.from(allVendors)[0];
+                    renderVendorDetails(vendorSelector.value);
+                }
+                renderOverviewChart();
+                renderComparisonCharts();
+            }
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => switchView(e.target.dataset.target));
+            });
+            vendorFilter.addEventListener('change', filterFeatures);
+            categoryFilter.addEventListener('change', filterFeatures);
+            statusToggle.addEventListener('change', filterFeatures);
+            vendorSelector.addEventListener('change', (e) => renderVendorDetails(e.target.value));
+
+            async function callGeminiAPI(prompt, outputElement, loaderElement, errorElement, sectionElement) {
+                loaderElement.classList.remove('hidden');
+                outputElement.textContent = '';
+                errorElement.classList.add('hidden');
+                sectionElement.classList.remove('hidden');
+
+                try {
+                    let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; 
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        outputElement.textContent = text;
+                    } else {
+                        throw new Error("No content received from Gemini API.");
+                    }
+                } catch (err) {
+                    console.error("Gemini API call error:", err);
+                    errorElement.textContent = `Error: ${err.message}. Please try again. If the issue persists, the API might be temporarily unavailable or there might be a configuration problem.`;
+                    errorElement.classList.remove('hidden');
+                    outputElement.textContent = ''; 
+                } finally {
+                    loaderElement.classList.add('hidden');
+                }
+            }
+
+            generateSwotButton.addEventListener('click', () => {
+                if (!currentSelectedVendorData) return;
+                const { vendor, strategy, userSentiment, features } = currentSelectedVendorData;
+                const liveFeaturesList = features.filter(f => f.status === 'Live').map(f => `- ${f.name} (${f.category})`).join('\n');
+                const roadmapFeaturesList = features.filter(f => f.status === 'Roadmap').map(f => `- ${f.name} (${f.category})`).join('\n');
+
+                const prompt = `Based on the following information for the LMS vendor '${vendor}', generate a concise SWOT analysis (Strengths, Weaknesses, Opportunities, Threats).
+
+Vendor Strategy: ${strategy}
+User Sentiment: ${userSentiment}
+Live Features:\n${liveFeaturesList || 'None detailed'}
+Roadmap Features:\n${roadmapFeaturesList || 'None detailed'}
+
+Provide the output as a simple text-based SWOT analysis with clear headings for Strengths, Weaknesses, Opportunities, and Threats. Each point should be a bullet point.`;
+                
+                callGeminiAPI(prompt, swotOutput, swotLoader, swotError, swotAnalysisSection);
+            });
+
+            generateQuestionsButton.addEventListener('click', () => {
+                if (!currentSelectedVendorData) return;
+                const { vendor, strategy, userSentiment, features } = currentSelectedVendorData;
+                const liveFeaturesList = features.filter(f => f.status === 'Live').map(f => `- ${f.name} (${f.category}: ${f.description})`).join('\n');
+                const roadmapFeaturesList = features.filter(f => f.status === 'Roadmap').map(f => `- ${f.name} (${f.category}: ${f.description})`).join('\n');
+
+                const prompt = `You are an L&D professional evaluating LMS vendors. For the vendor '${vendor}', with the following profile, generate 3-5 insightful questions to ask them during a product demonstration or RFP process. Focus on understanding their AI capabilities, future direction, and how their platform addresses common L&D challenges.
+
+Vendor Strategy: ${strategy}
+User Sentiment: ${userSentiment}
+Live AI Features:\n${liveFeaturesList || 'None detailed'}
+Roadmap AI Features:\n${roadmapFeaturesList || 'None detailed'}
+
+Provide the questions as a numbered list.`;
+
+                callGeminiAPI(prompt, questionsOutput, questionsLoader, questionsError, questionsSection);
+            });
+
+
+            function renderOverviewChart() {
+                const ctx = document.getElementById('marketOverviewChart').getContext('2d');
+                if (window.marketOverviewChartInstance) {
+                    window.marketOverviewChartInstance.destroy();
+                }
+                window.marketOverviewChartInstance = new Chart(ctx, {
+                    type: 'bubble',
+                    data: {
+                        datasets: lmsData.map(vendor => ({
+                            label: vendor.vendor,
+                            data: [{
+                                x: vendor.position.x,
+                                y: vendor.position.y,
+                                r: vendor.position.r
+                            }],
+                            backgroundColor: `hsla(${195 + (vendor.position.x * 10)}, 60%, 60%, 0.7)`,
+                            borderColor: `hsla(${195 + (vendor.position.x * 10)}, 60%, 40%, 1)`,
+                            borderWidth: 1,
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                         plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Feature Breadth (Qualitative)',
+                                    font: { size: 14 }
+                                },
+                                min: 3, max: 10,
+                                ticks: { display: false },
+                                grid: { drawBorder: false }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Roadmap Ambition (Qualitative)',
+                                    font: { size: 14 }
+                                },
+                                min: 3, max: 10,
+                                ticks: { display: false },
+                                grid: { drawBorder: false }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function renderComparisonCharts() {
+                const liveCtx = document.getElementById('liveFeaturesChart').getContext('2d');
+                const roadmapCtx = document.getElementById('roadmapFeaturesChart').getContext('2d');
+
+                const categories = Array.from(allCategories);
+                const colors = categories.map((_, i) => `hsl(${200 + i * 25}, 70%, 60%)`);
+
+                const processChartData = (status) => {
+                    const datasets = categories.map((category, i) => ({
+                        label: category,
+                        data: lmsData.map(vendor => 
+                            vendor.features.filter(f => f.status === status && f.category === category).length
+                        ),
+                        backgroundColor: colors[i],
+                    }));
+
+                    return {
+                        labels: lmsData.map(v => v.vendor),
+                        datasets: datasets
+                    };
+                };
+
+                const chartOptions = {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, title: { display: true, text: 'Number of Features' } },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        tooltip: { mode: 'index', intersect: false },
+                        legend: { position: 'bottom' }
+                    }
+                };
+                
+                if (window.liveFeaturesChartInstance) window.liveFeaturesChartInstance.destroy();
+                window.liveFeaturesChartInstance = new Chart(liveCtx, { type: 'bar', data: processChartData('Live'), options: chartOptions });
+                
+                if (window.roadmapFeaturesChartInstance) window.roadmapFeaturesChartInstance.destroy();
+                window.roadmapFeaturesChartInstance = new Chart(roadmapCtx, { type: 'bar', data: processChartData('Roadmap'), options: chartOptions });
+            }
+
+            initializeData();
+        });
+    </script>
+
+</body>
+</html>
